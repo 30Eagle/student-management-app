@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Dashboard - EduManage</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <h2>EduManage</h2>
+            </div>
+            <div class="nav-links">
+                <span class="nav-link">Teacher Dashboard</span>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="dashboard active">
+            <div class="dashboard-header">
+                <div class="user-info">Welcome, <span id="teacher-name">Loading...</span>!</div>
+            </div>
+
+            <!-- Alert Container -->
+            <div id="alert-container"></div>
+
+            <!-- Profile Card -->
+            <div class="dashboard-card">
+                <h3>📋 My Profile</h3>
+                <div id="profile-content">
+                    <p><strong>Teacher Name:</strong> <span id="profile-name"></span></p>
+                    <p><strong>Teacher ID:</strong> <span id="profile-id"></span></p>
+                </div>
+            </div>
+
+            <!-- Create Join Code Card -->
+            <div class="dashboard-card">
+                <h3>➕ Create New Join Code</h3>
+                <form id="create-join-code-form">
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+                        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                            <label for="code">Join Code</label>
+                            <input type="text" id="code" name="code" placeholder="e.g., MATH101" required>
+                        </div>
+                        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                            <label for="subject">Subject</label>
+                            <input type="text" id="subject" name="subject" placeholder="e.g., Mathematics" required>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 15px;">
+                        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                            <label for="sectionNo">Section</label>
+                            <input type="text" id="sectionNo" name="sectionNo" placeholder="e.g., A, B, 1, 2" required>
+                        </div>
+                        <div class="form-group" style="flex: 2; margin-bottom: 0;">
+                            <label for="description">Description</label>
+                            <input type="text" id="description" name="description" placeholder="Brief description (optional)">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Create Join Code</button>
+                </form>
+            </div>
+
+            <!-- My Join Codes Card -->
+            <div class="dashboard-card">
+                <h3>🔑 My Join Codes</h3>
+                <div id="join-codes-loading" class="loading">Loading join codes...</div>
+                <div id="join-codes-content">
+                    <div id="join-codes-list"></div>
+                    <button class="btn btn-outline" onclick="refreshJoinCodes()">Refresh Codes</button>
+                </div>
+            </div>
+
+            <!-- Students Card -->
+            <div class="dashboard-card">
+                <h3>👥 All My Students</h3>
+                <div id="students-loading" class="loading">Loading students...</div>
+                <div id="students-content">
+                    <div id="students-list"></div>
+                    <button class="btn btn-outline" onclick="refreshStudents()">Refresh List</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-bottom">
+                <p>&copy; 2025 EduManage. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    <script>
+        // Teacher Dashboard Specific Functions
+        async function loadDashboard() {
+            // Check authentication
+            if (!checkAuth() || currentUser.type !== 'teacher') {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            document.getElementById('teacher-name').textContent = currentUser.name;
+
+            try {
+                // Load profile
+                const profile = await loadTeacherProfile();
+                if (profile) {
+                    document.getElementById('profile-name').textContent = profile.teacherName;
+                    document.getElementById('profile-id').textContent = profile.teacherId;
+                }
+
+                // Load join codes
+                await refreshJoinCodes();
+
+                // Load students
+                await refreshStudents();
+
+            } catch (error) {
+                showAlert('Error loading dashboard: ' + error.message, 'error');
+            }
+        }
+
+        // Join Code Management
+        async function createJoinCode(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const data = {
+                code: formData.get('code'),
+                subject: formData.get('subject'),
+                sectionNo: formData.get('sectionNo'),
+                description: formData.get('description')
+            };
+
+            try {
+                const response = await makeRequest('/join-codes/create', 'POST', data, true);
+                
+                if (response.ok) {
+                    showAlert('Join code created successfully!', 'success');
+                    event.target.reset();
+                    await refreshJoinCodes();
+                } else {
+                    const error = await response.text();
+                    showAlert('Failed to create join code: ' + error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error creating join code: ' + error.message, 'error');
+            }
+        }
+
+        async function refreshJoinCodes() {
+            const loadingDiv = document.getElementById('join-codes-loading');
+            const joinCodesList = document.getElementById('join-codes-list');
+            
+            loadingDiv.style.display = 'block';
+            joinCodesList.innerHTML = '';
+
+            try {
+                const response = await makeRequest('/join-codes/my-codes', 'GET', null, true);
+                if (response.ok) {
+                    const joinCodes = await response.json();
+                    loadingDiv.style.display = 'none';
+                    
+                    if (joinCodes.length === 0) {
+                        joinCodesList.innerHTML = '<div class="list-item">No join codes created yet. Create your first one above!</div>';
+                    } else {
+                        joinCodes.forEach(joinCode => {
+                            const div = document.createElement('div');
+                            div.className = 'list-item';
+                            div.innerHTML = `
+                                <div style="display: flex; justify-content: between; align-items: center;">
+                                    <div style="flex: 1;">
+                                        <strong>🔑 ${joinCode.code}</strong> - ${joinCode.subject} (Section ${joinCode.sectionNo})
+                                        <br>
+                                        <small>${joinCode.description || 'No description'}</small>
+                                        <br>
+                                        <small>Status: <span style="color: ${joinCode.isActive ? '#28a745' : '#dc3545'}">${joinCode.isActive ? 'Active' : 'Inactive'}</span></small>
+                                    </div>
+                                    <div style="margin-left: 10px;">
+                                        <button class="btn btn-outline" onclick="copyToClipboard('${joinCode.code}')" style="padding: 5px 10px; font-size: 12px;">Copy Code</button>
+                                        <button class="btn ${joinCode.isActive ? 'btn-secondary' : 'btn-primary'}" onclick="toggleJoinCodeStatus(${joinCode.joinCodeId})" style="padding: 5px 10px; font-size: 12px; margin-left: 5px;">
+                                            ${joinCode.isActive ? 'Deactivate' : 'Activate'}
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                            joinCodesList.appendChild(div);
+                        });
+                    }
+                } else {
+                    throw new Error('Failed to load join codes');
+                }
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                joinCodesList.innerHTML = '<div class="list-item" style="color: #dc3545;">Error loading join codes</div>';
+            }
+        }
+
+        async function toggleJoinCodeStatus(joinCodeId) {
+            try {
+                const response = await makeRequest(`/join-codes/${joinCodeId}/toggle-status`, 'PUT', null, true);
+                if (response.ok) {
+                    showAlert('Join code status updated!', 'success');
+                    await refreshJoinCodes();
+                } else {
+                    throw new Error('Failed to update status');
+                }
+            } catch (error) {
+                showAlert('Error updating join code status: ' + error.message, 'error');
+            }
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(function() {
+                showAlert('Join code copied to clipboard!', 'success');
+            }).catch(function() {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showAlert('Join code copied to clipboard!', 'success');
+            });
+        }
+
+        async function refreshStudents() {
+            const loadingDiv = document.getElementById('students-loading');
+            const studentsList = document.getElementById('students-list');
+            
+            loadingDiv.style.display = 'block';
+            studentsList.innerHTML = '';
+
+            try {
+                const students = await loadMyStudents();
+                loadingDiv.style.display = 'none';
+                
+                if (students.length === 0) {
+                    studentsList.innerHTML = '<div class="list-item">No students assigned to you yet. Students need to join your classes using join codes.</div>';
+                } else {
+                    students.forEach(student => {
+                        const div = document.createElement('div');
+                        div.className = 'list-item';
+                        div.innerHTML = `
+                            <strong>👨‍🎓 ${student.studentName}</strong>
+                            <br>
+                            <small>Student ID: ${student.studentId}</small>
+                        `;
+                        studentsList.appendChild(div);
+                    });
+                }
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                studentsList.innerHTML = '<div class="list-item" style="color: #dc3545;">Error loading students</div>';
+            }
+        }
+
+        // Add event listener for join code form
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboard();
+            
+            const form = document.getElementById('create-join-code-form');
+            if (form) {
+                form.addEventListener('submit', createJoinCode);
+            }
+        });
+    </script>
+</body>
+</html>

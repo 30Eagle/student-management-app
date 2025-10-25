@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard - EduManage</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <h2>EduManage</h2>
+            </div>
+            <div class="nav-links">
+                <span class="nav-link">Student Dashboard</span>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="dashboard active">
+            <div class="dashboard-header">
+                <div class="user-info">Welcome, <span id="student-name">Loading...</span>!</div>
+            </div>
+
+            <!-- Alert Container -->
+            <div id="alert-container"></div>
+
+            <!-- Join Class Card -->
+            <div class="dashboard-card">
+                <h3>➕ Join a New Class</h3>
+                <form id="join-class-form" onsubmit="handleJoinClass(event)">
+                    <div style="display: flex; gap: 15px; align-items: end;">
+                        <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                            <label for="join-code">Join Code</label>
+                            <input type="text" id="join-code" name="joinCode" placeholder="Enter Join Code" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Join Class</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- My Classes Card -->
+            <div class="dashboard-card">
+                <h3>📚 My Classes</h3>
+                <div id="classes-loading" class="loading">Loading your classes...</div>
+                <div id="classes-content">
+                    <div id="classes-list"></div>
+                    <button class="btn btn-outline" onclick="refreshClasses()">Refresh Classes</button>
+                </div>
+            </div>
+
+            <!-- My Teachers Card -->
+            <div class="dashboard-card">
+                <h3>👨‍🏫 My Teachers</h3>
+                <div id="teachers-loading" class="loading">Loading teachers...</div>
+                <div id="teachers-content">
+                    <div id="teachers-list"></div>
+                    <button class="btn btn-outline" onclick="refreshTeachers()">Refresh Teachers</button>
+                </div>
+            </div>
+
+            <!-- Classmates by Class Card -->
+            <div class="dashboard-card">
+                <h3>👥 Classmates by Class</h3>
+                <div id="classmates-content">
+                    <div id="classmates-sections"></div>
+                    <button class="btn btn-outline" onclick="refreshAllClassmates()">Refresh All Classmates</button>
+                </div>
+            </div>
+
+            <!-- My Profile Card -->
+            <div class="dashboard-card">
+                <h3>📋 My Profile</h3>
+                <div id="profile-content">
+                    <p><strong>Student Name:</strong> <span id="profile-name"></span></p>
+                    <p><strong>Total Classes:</strong> <span id="profile-classes-count">0</span></p>
+                    <p><strong>Student ID:</strong> <span id="profile-id"></span></p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-bottom">
+                <p>&copy; 2025 EduManage. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    <script>
+        // Global variables for storing student data
+        let studentClasses = [];
+        let studentTeachers = [];
+
+        // Student Dashboard Specific Functions
+        async function loadDashboard() {
+            // Check authentication
+            if (!checkAuth() || currentUser.type !== 'student') {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            document.getElementById('student-name').textContent = currentUser.name;
+            document.getElementById('profile-name').textContent = currentUser.name;
+
+            try {
+                // Load student profile first
+                await loadStudentProfile();
+                
+                // Load all classes
+                await refreshClasses();
+                
+                // Load teachers
+                await refreshTeachers();
+                
+                // Load classmates for all classes
+                await refreshAllClassmates();
+
+            } catch (error) {
+                showAlert('Error loading dashboard: ' + error.message, 'error');
+            }
+        }
+
+        async function loadStudentProfile() {
+            try {
+                const response = await makeRequest('/students/profile', 'GET', null, true);
+                if (response.ok) {
+                    const student = await response.json();
+                    document.getElementById('profile-id').textContent = student.studentId;
+                }
+            } catch (error) {
+                console.error('Failed to load student profile:', error);
+            }
+        }
+
+        async function refreshClasses() {
+            const loadingDiv = document.getElementById('classes-loading');
+            const classesList = document.getElementById('classes-list');
+            
+            loadingDiv.style.display = 'block';
+            classesList.innerHTML = '';
+
+            try {
+                const response = await makeRequest('/students/my-classes', 'GET', null, true);
+                if (response.ok) {
+                    studentClasses = await response.json();
+                    loadingDiv.style.display = 'none';
+                    
+                    // Update profile classes count
+                    document.getElementById('profile-classes-count').textContent = studentClasses.length;
+                    
+                    if (studentClasses.length === 0) {
+                        classesList.innerHTML = '<div class="list-item">No classes joined yet. Use a join code to join your first class!</div>';
+                    } else {
+                        studentClasses.forEach(studentClass => {
+                            const div = document.createElement('div');
+                            div.className = 'list-item';
+                            div.innerHTML = `
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <strong>📚 ${studentClass.subject} - Section ${studentClass.sectionNo}</strong>
+                                        <br>
+                                        <small>Teacher: ${studentClass.teacherName}</small>
+                                        <br>
+                                        <small>Join Code: ${studentClass.joinCode}</small>
+                                        <br>
+                                        <small>Joined: ${new Date(studentClass.joinedAt).toLocaleDateString()}</small>
+                                        ${studentClass.description ? `<br><small>Description: ${studentClass.description}</small>` : ''}
+                                    </div>
+                                    <div>
+                                        <button class="btn btn-outline" onclick="viewClassmates('${studentClass.joinCode}')" style="padding: 5px 10px; font-size: 12px; margin-right: 5px;">View Classmates</button>
+                                        <button class="btn btn-secondary" onclick="leaveClass('${studentClass.joinCode}')" style="padding: 5px 10px; font-size: 12px;">Leave Class</button>
+                                    </div>
+                                </div>
+                            `;
+                            classesList.appendChild(div);
+                        });
+                    }
+                } else {
+                    throw new Error('Failed to load classes');
+                }
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                classesList.innerHTML = '<div class="list-item" style="color: #dc3545;">Error loading classes</div>';
+            }
+        }
+
+        async function refreshTeachers() {
+            const loadingDiv = document.getElementById('teachers-loading');
+            const teachersList = document.getElementById('teachers-list');
+            
+            loadingDiv.style.display = 'block';
+            teachersList.innerHTML = '';
+
+            try {
+                const response = await makeRequest('/students/my-teachers', 'GET', null, true);
+                if (response.ok) {
+                    studentTeachers = await response.json();
+                    loadingDiv.style.display = 'none';
+                    
+                    if (studentTeachers.length === 0) {
+                        teachersList.innerHTML = '<div class="list-item">No teachers assigned yet. Join a class to get started!</div>';
+                    } else {
+                        studentTeachers.forEach(teacher => {
+                            const div = document.createElement('div');
+                            div.className = 'list-item';
+                            div.innerHTML = `
+                                <strong>👨‍🏫 ${teacher.teacherName}</strong>
+                                <br>
+                                <small>Subject: ${teacher.subject} - Section ${teacher.sectionNo}</small>
+                                <br>
+                                <small>Join Code: ${teacher.joinCode}</small>
+                                <br>
+                                <small>Teacher ID: ${teacher.teacherId}</small>
+                            `;
+                            teachersList.appendChild(div);
+                        });
+                    }
+                } else {
+                    throw new Error('Failed to load teachers');
+                }
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                teachersList.innerHTML = '<div class="list-item" style="color: #dc3545;">Error loading teachers</div>';
+            }
+        }
+
+        async function refreshAllClassmates() {
+            const classmatesSections = document.getElementById('classmates-sections');
+            classmatesSections.innerHTML = '';
+
+            if (studentClasses.length === 0) {
+                classmatesSections.innerHTML = '<div class="list-item">Join a class to see your classmates!</div>';
+                return;
+            }
+
+            // Load classmates for each class
+            for (const studentClass of studentClasses) {
+                await loadClassmatesForClass(studentClass.joinCode, studentClass.subject, studentClass.sectionNo);
+            }
+        }
+
+        async function loadClassmatesForClass(joinCode, subject, sectionNo) {
+            try {
+                const response = await makeRequest(`/students/classmates/${joinCode}`, 'GET', null, true);
+                if (response.ok) {
+                    const classmates = await response.json();
+                    
+                    const classmatesSections = document.getElementById('classmates-sections');
+                    const sectionDiv = document.createElement('div');
+                    sectionDiv.className = 'dashboard-card';
+                    sectionDiv.style.marginBottom = '15px';
+                    sectionDiv.style.border = '1px solid #e5e5e5';
+                    
+                    let classmatesHtml = `<h4>🏫 ${subject} - Section ${sectionNo} (${joinCode})</h4>`;
+                    
+                    if (classmates.length === 0) {
+                        classmatesHtml += '<div class="list-item">No other students in this class yet</div>';
+                    } else {
+                        classmates.forEach(student => {
+                            classmatesHtml += `
+                                <div class="list-item" style="margin-bottom: 8px;">
+                                    <strong>👨‍🎓 ${student.studentName}</strong>
+                                    <br>
+                                    <small>Student ID: ${student.studentId}</small>
+                                </div>
+                            `;
+                        });
+                    }
+                    
+                    sectionDiv.innerHTML = classmatesHtml;
+                    classmatesSections.appendChild(sectionDiv);
+                }
+            } catch (error) {
+                console.error(`Error loading classmates for ${joinCode}:`, error);
+            }
+        }
+
+        async function handleJoinClass(event) {
+            event.preventDefault();
+            
+            const joinCode = document.getElementById('join-code').value.trim();
+            if (!joinCode) {
+                showAlert('Please enter a join code', 'error');
+                return;
+            }
+
+            try {
+                const response = await makeRequest('/students/join-class', 'POST', { joinCode }, true);
+                
+                if (response.ok) {
+                    const result = await response.text();
+                    showAlert(result, 'success');
+                    
+                    // Refresh all data
+                    await refreshClasses();
+                    await refreshTeachers();
+                    await refreshAllClassmates();
+
+                    // Reset form
+                    document.getElementById('join-class-form').reset();
+                } else {
+                    const error = await response.text();
+                    showAlert(error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function leaveClass(joinCode) {
+            if (!confirm(`Are you sure you want to leave the class with join code: ${joinCode}?`)) {
+                return;
+            }
+
+            try {
+                const response = await makeRequest('/students/leave-class', 'POST', { joinCode }, true);
+                
+                if (response.ok) {
+                    const result = await response.text();
+                    showAlert(result, 'success');
+                    
+                    // Refresh all data
+                    await refreshClasses();
+                    await refreshTeachers();
+                    await refreshAllClassmates();
+                } else {
+                    const error = await response.text();
+                    showAlert(error, 'error');
+                }
+            } catch (error) {
+                showAlert('Error leaving class: ' + error.message, 'error');
+            }
+        }
+
+        function viewClassmates(joinCode) {
+            // Scroll to the specific classmates section
+            const classmatesSections = document.getElementById('classmates-sections');
+            const targetSection = Array.from(classmatesSections.children).find(section => 
+                section.innerHTML.includes(`(${joinCode})`)
+            );
+            
+            if (targetSection) {
+                targetSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                targetSection.style.backgroundColor = '#f0f8ff';
+                setTimeout(() => {
+                    targetSection.style.backgroundColor = '';
+                }, 2000);
+            }
+        }
+
+        async function refreshAll() {
+            showAlert('Refreshing all data...', 'info');
+            await loadDashboard();
+            showAlert('All data refreshed!', 'success');
+        }
+
+        // Initialize dashboard when page loads
+        document.addEventListener('DOMContentLoaded', loadDashboard);
+    </script>
+</body>
+</html>

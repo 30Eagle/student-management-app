@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - EduManage</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <h2>EduManage</h2>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="login.html" class="nav-link active">Login</a>
+                <a href="register.html" class="nav-link">Register</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="auth-container">
+            <div class="auth-card">
+                <div class="auth-header">
+                    <h1>Welcome Back</h1>
+                    <p>Sign in to your account</p>
+                </div>
+
+                <!-- Login Type Toggle -->
+                <div class="toggle-container">
+                    <button class="toggle-btn active" onclick="showLoginForm('teacher')">Teacher Login</button>
+                    <button class="toggle-btn" onclick="showLoginForm('student')">Student Login</button>
+                </div>
+
+                <!-- Alert Messages -->
+                <div id="alert-container"></div>
+
+                <!-- Teacher Login Form -->
+                <div id="teacher-login" class="login-form active">
+                    <form id="teacher-login-form">
+                        <div class="form-group">
+                            <label for="teacher-name">Teacher Name</label>
+                            <input type="text" id="teacher-name" name="teacherName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="teacher-password">Password</label>
+                            <input type="password" id="teacher-password" name="password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-full">Sign In as Teacher</button>
+                    </form>
+                </div>
+
+                <!-- Student Login Form -->
+                <div id="student-login" class="login-form">
+                    <form id="student-login-form">
+                        <div class="form-group">
+                            <label for="student-name">Student Name</label>
+                            <input type="text" id="student-name" name="studentName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="student-password">Password</label>
+                            <input type="password" id="student-password" name="password" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-full">Sign In as Student</button>
+                    </form>
+                </div>
+
+                <div class="auth-footer">
+                    <p>Don't have an account? <a href="register.html">Register here</a></p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-bottom">
+                <p>&copy; 2025 EduManage. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+    
+</body>
+</html>
