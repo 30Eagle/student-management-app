@@ -12,7 +12,17 @@ import java.util.Date;
 @Service
 public class JwtService {
     private static final long EXPIRATION = 1000 * 60 * 60; // 1 hour
-    private final Key secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+
+    @Value("${JWT_SECRET:myDefaultSecretKeyThatIsAtLeast256BitsLongForHS256Algorithm}")
+    private String jwtSecret;
+
+    private SecretKey getSigningKey() {
+        // Use environment variable if set, otherwise use default secret
+        byte[] keyBytes = Base64.getDecoder().decode(
+            Base64.getEncoder().encodeToString(jwtSecret.getBytes())
+        );
+        return Keys.hmacShaKeyFor(keyBytes);
+    }
 
     public String generateToken(String username) {
         return Jwts.builder()
