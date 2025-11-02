@@ -1,5 +1,7 @@
-// Configuration
-const API_BASE = 'http://localhost:8080';
+// Configuration - Dynamic API URL for development and production
+const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:8080'
+    : window.location.origin;
 let currentUser = null;
 let currentToken = null;
 
