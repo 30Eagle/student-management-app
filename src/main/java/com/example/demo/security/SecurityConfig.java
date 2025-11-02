@@ -42,7 +42,7 @@ public class SecurityConfig {
                 .requestMatchers("/auth/**").permitAll()
                 
                 // Allow OPTIONS requests (for CORS preflight)
-                .requestMatchers("OPTIONS", "/**").permitAll()
+                .requestMatchers("OPTIONS/**").permitAll()
                 
                 // Protect all other endpoints
                 .anyRequest().authenticated())
